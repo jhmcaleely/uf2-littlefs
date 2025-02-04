@@ -6,4 +6,4 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 project(uf2-littlefs C CXX ASM)
 
-add_executable(uf2-littlefs main.c littlefs/lfs.c littlefs/lfs_util.c)
+add_executable(uf2-littlefs main.c uf2_lfs_hal.c littlefs/lfs.c littlefs/lfs_util.c)

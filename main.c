@@ -2,6 +2,8 @@
 
 #include "littlefs/lfs.h"
 
+#include "uf2_lfs_hal.h"
+
 #define PICO_PROG_PAGE_SIZE 256
 #define PICO_ERASE_PAGE_SIZE 4096
 #define FLASHFS_BLOCK_COUNT 128
@@ -9,10 +11,10 @@
 // configuration of the filesystem is provided by this struct
 struct lfs_config cfg = {
     // block device operations
-    .read  = NULL,
-    .prog  = NULL,
-    .erase = NULL,
-    .sync  = NULL,
+    .read  = uf2_read_flash_block,
+    .prog  = uf2_prog_flash_block,
+    .erase = uf2_erase_flash_block,
+    .sync  = uf2_sync_flash_block,
 
     // block device configuration
 
@@ -35,8 +37,14 @@ struct lfs_config cfg = {
 lfs_t lfs;
 lfs_file_t file;
 
-int main()
-{
+int main(int argc, char* argv[]) {
+    if (argc != 2) {
+        printf("must supply uf2 filename\n");
+        exit(1);
+    }
+
+    uf2_hal_init(argv[1]);
+
     // mount the filesystem
     int err = lfs_mount(&lfs, &cfg);
 
