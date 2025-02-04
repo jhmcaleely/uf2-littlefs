@@ -7,23 +7,58 @@
 
 struct uf2block {
     struct uf2block* next;
-    uint32_t block;
-    uint32_t offset;
+    uint32_t device_offset;
+
     uint8_t* data;
     size_t count;
 };
 
 struct uf2block* blocks;
+
+void dumpBlocks() {
+    struct uf2block* cursor = blocks;
+    while (cursor) {
+        printf("b: %08x\n", cursor->device_offset);
+        cursor = cursor->next;
+    }
+}
+
+void insert(struct uf2block* nb) {
+    uint32_t candidate_offset = nb->device_offset;
+    printf("Insert block %08x\n", candidate_offset);
+
+    struct uf2block** cursor = &blocks;
+
+    while (*cursor && candidate_offset >= (*cursor)->device_offset) {
+        cursor = &(*cursor)->next;
+    }
+
+    nb->next = *cursor;
+    *cursor = nb;
+}
+
+struct uf2block* find(uint32_t offset) {
+    printf("Find block %08x\n", offset);
+
+    struct uf2block* cursor = blocks;
+    while (cursor && cursor->device_offset != offset) {
+        cursor = cursor->next;
+    }
+    return cursor;
+}
+
+
 FILE* uf2out;
 
 int uf2_hal_init(const char* uf2filename) {
     blocks = NULL;
-    uf2out = fopen(uf2filename, "rwb");
+    uf2out = fopen(uf2filename, "wb");
 
     return LFS_ERR_OK;
 }
 
 int uf2_hal_close() {
+
     int count = 0;
     struct uf2block * b = blocks;
     while (b != NULL) {
@@ -37,7 +72,7 @@ int uf2_hal_close() {
         b.magicStart0 = UF2_MAGIC_START0;
         b.magicStart1 = UF2_MAGIC_START1;
         b.magicEnd = UF2_MAGIC_END;
-        b.targetAddr = FLASHFS_BASE_ADDR + fsblock->block * PICO_ERASE_PAGE_SIZE + fsblock->offset;
+        b.targetAddr = FLASHFS_BASE_ADDR + fsblock->device_offset;
         b.numBlocks = count;
         b.payloadSize = fsblock->count;
         b.blockNo = cursor;
@@ -52,24 +87,40 @@ int uf2_hal_close() {
 }
 
 int uf2_read_flash_block(const struct lfs_config *c, lfs_block_t block, lfs_off_t off, void *buffer, lfs_size_t size) {
-    return LFS_ERR_OK;
+    size_t deviceOffset = block * PICO_ERASE_PAGE_SIZE + off;
+
+    struct uf2block * candidate = find(deviceOffset);
+    if (candidate) {
+        memcpy(buffer, candidate->data, size);
+        return LFS_ERR_OK;
+    }
+    else {
+        memset(buffer, 0, size);
+        return LFS_ERR_OK;
+    }
 }
 
 int uf2_prog_flash_block(const struct lfs_config *c, lfs_block_t block, lfs_off_t off, const void *buffer, lfs_size_t size) {
     struct uf2block* new_block = malloc(sizeof(struct uf2block));
-    new_block->next = blocks;
-    blocks = new_block;
+    new_block->next = NULL;
+    
+    size_t deviceOffset = block * PICO_ERASE_PAGE_SIZE + off;
 
-    new_block->block = block;
-    new_block->offset = off;
+    new_block->device_offset = deviceOffset;
     new_block->data = malloc(size);
     memcpy(new_block->data, buffer, size);
     new_block->count = size;
+
+    insert(new_block);
+
+    dumpBlocks();
 
     return LFS_ERR_OK;
 }
 
 int uf2_erase_flash_block(const struct lfs_config *c, lfs_block_t block) {
+    uint32_t deviceOffset = block * PICO_ERASE_PAGE_SIZE;
+    printf("Erase requested: %08x\n", deviceOffset);
     return LFS_ERR_OK;
 }
 

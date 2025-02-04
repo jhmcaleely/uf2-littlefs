@@ -16,8 +16,7 @@ struct lfs_config cfg = {
 
     // block device configuration
 
-    // device is memory mapped for reading, so reading can be per byte
-    .read_size = 1,
+    .read_size = PICO_PROG_PAGE_SIZE,
     
     .prog_size = PICO_PROG_PAGE_SIZE,
     .block_size = PICO_ERASE_PAGE_SIZE,
