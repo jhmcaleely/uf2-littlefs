@@ -4,6 +4,7 @@
 #include "littlefs/lfs.h"
 
 int uf2_hal_init(const char* uf2filename);
+int uf2_hal_close();
 
 // block device functions required for littlefs
 int uf2_read_flash_block(const struct lfs_config *c, lfs_block_t block, lfs_off_t off, void *buffer, lfs_size_t size);

@@ -3,10 +3,8 @@
 #include "littlefs/lfs.h"
 
 #include "uf2_lfs_hal.h"
+#include "pico_flash_fs.h"
 
-#define PICO_PROG_PAGE_SIZE 256
-#define PICO_ERASE_PAGE_SIZE 4096
-#define FLASHFS_BLOCK_COUNT 128
 
 // configuration of the filesystem is provided by this struct
 struct lfs_config cfg = {
@@ -70,6 +68,8 @@ int main(int argc, char* argv[]) {
 
     // release any resources we were using
     lfs_unmount(&lfs);
+
+    uf2_hal_close();
 
     // print the boot count
     printf("boot_count: %d\n", boot_count);
