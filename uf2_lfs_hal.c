@@ -76,6 +76,7 @@ int uf2_hal_close() {
         b.numBlocks = count;
         b.payloadSize = fsblock->count;
         b.blockNo = cursor;
+        printf("uf2block: %08x, %d\n", b.targetAddr, b.payloadSize);
         memcpy(b.data, fsblock->data, fsblock->count);
         fwrite(&b, sizeof(b), 1, uf2out);
         fsblock = fsblock->next;
@@ -95,6 +96,7 @@ int uf2_read_flash_block(const struct lfs_config *c, lfs_block_t block, lfs_off_
         return LFS_ERR_OK;
     }
     else {
+        printf("read from unavailable block %d, offset %d\n", block, off);
         memset(buffer, 0, size);
         return LFS_ERR_OK;
     }
