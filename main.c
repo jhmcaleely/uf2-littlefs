@@ -16,7 +16,7 @@ struct lfs_config cfg = {
 
     // block device configuration
 
-    .read_size = PICO_PROG_PAGE_SIZE,
+    .read_size = 1,
     
     .prog_size = PICO_PROG_PAGE_SIZE,
     .block_size = PICO_ERASE_PAGE_SIZE,
