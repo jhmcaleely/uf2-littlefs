@@ -5,6 +5,8 @@
 
 #include "uf2/uf2.h"
 
+#define PICO_UF2_FAMILYID 0xe48bff56
+
 struct uf2block {
     struct uf2block* next;
     uint32_t device_offset;
@@ -71,11 +73,15 @@ int uf2_hal_close() {
         UF2_Block b;
         b.magicStart0 = UF2_MAGIC_START0;
         b.magicStart1 = UF2_MAGIC_START1;
+        b.flags = UF2_FLAG_FAMILY_ID;
         b.magicEnd = UF2_MAGIC_END;
         b.targetAddr = FLASHFS_BASE_ADDR + fsblock->device_offset;
         b.numBlocks = count;
         b.payloadSize = fsblock->count;
         b.blockNo = cursor;
+        b.reserved = PICO_UF2_FAMILYID;
+        memset(b.data, 0, sizeof(b.data));
+
         printf("uf2block: %08x, %d\n", b.targetAddr, b.payloadSize);
         memcpy(b.data, fsblock->data, fsblock->count);
         fwrite(&b, sizeof(b), 1, uf2out);
