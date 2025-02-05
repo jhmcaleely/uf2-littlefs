@@ -68,7 +68,7 @@ int main(int argc, char* argv[]) {
     // release any resources we were using
     lfs_unmount(&lfs);
 
-    uf2_hal_close();
+    uf2_hal_close(argv[1]);
 
     // print the boot count
     printf("boot_count: %d\n", boot_count);

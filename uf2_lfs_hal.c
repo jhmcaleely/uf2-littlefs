@@ -14,7 +14,6 @@
 
 struct uf2blockfile {
     struct uf2block* device_blocks[FLASHFS_BLOCK_COUNT];
-    FILE* device_file;
 
     uint32_t base_address;
     uint32_t flash_device_offset;
@@ -79,7 +78,7 @@ int countBlocks(struct uf2blockfile* block_device) {
     return count;
 }
 
-void writeBlocks(struct uf2blockfile* block_device, FILE* outfile) {
+void writeToFile(struct uf2blockfile* block_device, FILE* outfile) {
     int total = countBlocks(block_device);
 
     int cursor = 0;
@@ -118,26 +117,18 @@ void writeBlocks(struct uf2blockfile* block_device, FILE* outfile) {
     }
 }
 
-bool readBlocks(struct uf2blockfile* device, const char* filename, uint32_t base_address) {
+bool readFromFile(struct uf2blockfile* device, uint32_t base_address, FILE* input) {
 
-    FILE* iofile = fopen(filename, "r+b");
-    if (iofile) {
-        UF2_Block b;
-        while (fread(&b, sizeof(UF2_Block), 1, iofile)) {
-            assert(b.magicStart0 == UF2_MAGIC_START0);
-            assert(b.magicStart1 == UF2_MAGIC_START1);
-            assert(b.magicEnd == UF2_MAGIC_END);
-            uint32_t off = b.targetAddr % PICO_ERASE_PAGE_SIZE;
-            insertData(device, blockFromAddress(device, b.targetAddr), off, b.data, b.payloadSize);
-        }
-    }
-    if (!iofile) {
-        iofile = fopen(filename, "wb");
+    UF2_Block b;
+    while (fread(&b, sizeof(UF2_Block), 1, input)) {
+        assert(b.magicStart0 == UF2_MAGIC_START0);
+        assert(b.magicStart1 == UF2_MAGIC_START1);
+        assert(b.magicEnd == UF2_MAGIC_END);
+        uint32_t off = b.targetAddr % PICO_ERASE_PAGE_SIZE;
+        insertData(device, blockFromAddress(device, b.targetAddr), off, b.data, b.payloadSize);
     }
 
-    device->device_file = iofile;
-
-    return iofile != NULL;
+    return true;
 }
 
 
@@ -147,18 +138,24 @@ int uf2_hal_init(const char* uf2filename) {
     for (int i = 0; i < FLASHFS_BLOCK_COUNT; i++) {
         device.device_blocks[i] = NULL;
     }
-    device.device_file = NULL;
 
-    readBlocks(&device, uf2filename, FLASHFS_BASE_ADDR);
+    FILE* iofile = fopen(uf2filename, "rb");
+    if (iofile) {
+        readFromFile(&device, FLASHFS_BASE_ADDR, iofile);
+        fclose(iofile);
+    }
 
     return LFS_ERR_OK;
 }
 
-int uf2_hal_close() {
+int uf2_hal_close(const char* uf2filename) {
 
-    fseek(device.device_file, 0, SEEK_SET);
-    writeBlocks(&device, device.device_file);
-    fclose(device.device_file);
+    FILE* iofile = fopen(uf2filename, "wb");
+    if (iofile) {
+        writeToFile(&device, iofile);
+    
+        fclose(iofile);
+    }
 
     return LFS_ERR_OK;
 }
