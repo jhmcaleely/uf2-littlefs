@@ -65,25 +65,37 @@ void removeBlock(struct uf2blockfile* block_device, uint32_t block) {
     }
 }
 
-void insertData(struct uf2blockfile* block_device, uint32_t block, uint32_t off, const uint8_t* data, size_t size) {
-
+struct flash_block* getOrCreateBlock(struct uf2blockfile* block_device, uint32_t block) {
     if (block_device->device_blocks[block] == NULL) {
         block_device->device_blocks[block] = malloc(sizeof(struct flash_block));
-        for (int i = 0; i < PICO_FLASH_PAGE_PER_BLOCK; i++) {
-            block_device->device_blocks[block]->pages[i] = NULL;
+        for (int p = 0; p < PICO_FLASH_PAGE_PER_BLOCK; p++) {
+            block_device->device_blocks[block]->pages[p] = NULL;
         }
     }
 
+    return block_device->device_blocks[block];
+}
+
+struct flash_page* getOrCreatePage(struct flash_block* flash_block, uint32_t p) {
+    if (flash_block->pages[p] == NULL) {
+        flash_block->pages[p] = malloc(sizeof(struct flash_page));
+    }
+
+    return flash_block->pages[p];
+}
+
+void insertData(struct uf2blockfile* block_device, uint32_t block, uint32_t off, const uint8_t* data, size_t size) {
+
+    struct flash_block* fb = getOrCreateBlock(block_device, block);
+    
     uint32_t page = off / PICO_PROG_PAGE_SIZE;
     uint32_t page_off = off % PICO_PROG_PAGE_SIZE;
 
     assert(page_off == 0);
 
-    if (block_device->device_blocks[block]->pages[page] == NULL) {
-        block_device->device_blocks[block]->pages[page] = malloc(sizeof(struct flash_page));
-    }
+    struct flash_page* fp = getOrCreatePage(fb, page);
 
-    uint8_t* target = &block_device->device_blocks[block]->pages[page]->data[page_off];
+    uint8_t* target = &fp->data[page_off];
 
     memcpy(target, data, size);
 }
