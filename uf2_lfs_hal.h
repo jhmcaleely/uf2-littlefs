@@ -3,11 +3,14 @@
 
 #include "littlefs/lfs.h"
 
-int uf2_hal_init(const struct lfs_config* c, uint32_t base_address);
-int uf2_hal_close();
+struct uf2blockfile;
 
-bool readFromFile(const struct lfs_config* c, FILE* input);
-bool writeToFile(const struct lfs_config* c, FILE* output);
+struct uf2blockfile* uf2_hal_init(struct lfs_config* c, uint32_t base_address);
+
+int uf2_hal_close(struct uf2blockfile* device, struct lfs_config* c);
+
+bool readFromFile(struct uf2blockfile* device, FILE* input);
+bool writeToFile(struct uf2blockfile* device, FILE* output);
 
 // block device functions required for littlefs
 int uf2_read_flash_block(const struct lfs_config* c, lfs_block_t block, lfs_off_t off, void *buffer, lfs_size_t size);

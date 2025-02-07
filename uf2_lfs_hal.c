@@ -116,20 +116,20 @@ int countPages(struct uf2blockfile* block_device) {
     return count;
 }
 
-bool writeToFile(const struct lfs_config* c, FILE* output) {
-    int total = countPages(&device);
+bool writeToFile(struct uf2blockfile* device, FILE* output) {
+    int total = countPages(device);
 
     int cursor = 0;
 
     for (int i = 0; i < FLASHFS_BLOCK_COUNT; i++) {
-        if (device.device_blocks[i]) {
+        if (device->device_blocks[i]) {
             for (int p = 0; p < PICO_FLASH_PAGE_PER_BLOCK; p++) {
-                if (device.device_blocks[i]->pages[p]) {
+                if (device->device_blocks[i]->pages[p]) {
                     UF2_Block b;
                     b.magicStart0 = UF2_MAGIC_START0;
                     b.magicStart1 = UF2_MAGIC_START1;
                     b.flags = UF2_FLAG_FAMILY_ID;
-                    b.targetAddr = blockAddress(&device, i) + p * PICO_PROG_PAGE_SIZE;
+                    b.targetAddr = blockAddress(device, i) + p * PICO_PROG_PAGE_SIZE;
                     b.payloadSize = PICO_PROG_PAGE_SIZE;
                     b.blockNo = cursor;
                     b.numBlocks = total;
@@ -137,7 +137,7 @@ bool writeToFile(const struct lfs_config* c, FILE* output) {
                     // documented as FamilyID, Filesize or 0.
                     b.reserved = PICO_UF2_FAMILYID;
 
-                    uint8_t* source = &device.device_blocks[i]->pages[p]->data[0];
+                    uint8_t* source = &device->device_blocks[i]->pages[p]->data[0];
 
                     memcpy(b.data, source, PICO_PROG_PAGE_SIZE);
 
@@ -159,7 +159,7 @@ bool writeToFile(const struct lfs_config* c, FILE* output) {
     return true;
 }
 
-bool readFromFile(const struct lfs_config *cfg, FILE* input) {
+bool readFromFile(struct uf2blockfile* device, FILE* input) {
 
     UF2_Block b;
     while (fread(&b, sizeof(UF2_Block), 1, input)) {
@@ -167,24 +167,26 @@ bool readFromFile(const struct lfs_config *cfg, FILE* input) {
         assert(b.magicStart1 == UF2_MAGIC_START1);
         assert(b.magicEnd == UF2_MAGIC_END);
         uint32_t off = b.targetAddr % PICO_ERASE_PAGE_SIZE;
-        insertData(&device, blockFromAddress(&device, b.targetAddr), off, b.data, b.payloadSize);
+        insertData(device, blockFromAddress(device, b.targetAddr), off, b.data, b.payloadSize);
     }
 
     return true;
 }
 
 
-int uf2_hal_init(const struct lfs_config* cfg, uint32_t base_address) {
+struct uf2blockfile* uf2_hal_init(struct lfs_config* c, uint32_t base_address) {
     device.base_address = base_address;
     device.flash_device_offset = FLASHFS_BASE_ADDR - device.base_address;
     for (int i = 0; i < FLASHFS_BLOCK_COUNT; i++) {
         device.device_blocks[i] = NULL;
     }
 
-    return LFS_ERR_OK;
+    return &device;
 }
 
-int uf2_hal_close() {
+int uf2_hal_close(struct uf2blockfile* device, struct lfs_config* c) {
+
+    c->context = NULL;
 
     return LFS_ERR_OK;
 }
