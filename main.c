@@ -52,14 +52,19 @@ void writeu2f(const char * input, struct ram_flash_sim* device) {
 }
 
 int main(int argc, char* argv[]) {
-    if (argc != 2) {
-        printf("must supply uf2 filename\n");
+    if (argc < 2 || argc > 3) {
+        printf("Usage:\n");
+        printf("  %s iofile\n", argv[0]);
+        printf("  %s infile outfile\n", argv[0]);
         exit(1);
     }
 
+    const char* infile = argv[1];
+    const char* outfile = argc == 3 ? argv[2] : infile;
+
     struct ram_flash_sim* device = uf2_hal_init(PICO_FLASH_BASE_ADDR);
     uf2_hal_add_fs(device, &cfg, FLASHFS_BASE_ADDR);
-    readu2f(argv[1], device);
+    readu2f(infile, device);
 
     // mount the filesystem
     int err = lfs_mount(&lfs, &cfg);
@@ -86,7 +91,7 @@ int main(int argc, char* argv[]) {
 
     // release any resources we were using
     lfs_unmount(&lfs);
-    writeu2f(argv[1], device);
+    writeu2f(outfile, device);
 
     uf2_hal_close_fs(device, &cfg);
     uf2_hal_close(device);
