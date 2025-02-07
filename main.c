@@ -34,7 +34,7 @@ struct lfs_config cfg = {
 lfs_t lfs;
 lfs_file_t file;
 
-void readu2f(const char * input, struct uf2blockfile* device) {
+void readu2f(const char * input, struct ram_flash_sim* device) {
     FILE* iofile = fopen(input, "rb");
     if (iofile) {
         readFromFile(device, iofile);
@@ -42,7 +42,7 @@ void readu2f(const char * input, struct uf2blockfile* device) {
     }
 }
 
-void writeu2f(const char * input, struct uf2blockfile* device) {
+void writeu2f(const char * input, struct ram_flash_sim* device) {
     FILE* iofile = fopen(input, "wb");
     if (iofile) {
         writeToFile(device, iofile);
@@ -57,7 +57,8 @@ int main(int argc, char* argv[]) {
         exit(1);
     }
 
-    struct uf2blockfile* device = uf2_hal_init(&cfg, PICO_FLASH_BASE_ADDR);
+    struct ram_flash_sim* device = uf2_hal_init(PICO_FLASH_BASE_ADDR);
+    uf2_hal_add_fs(device, &cfg, FLASHFS_BASE_ADDR);
     readu2f(argv[1], device);
 
     // mount the filesystem
@@ -87,7 +88,8 @@ int main(int argc, char* argv[]) {
     lfs_unmount(&lfs);
     writeu2f(argv[1], device);
 
-    uf2_hal_close(device, &cfg);
+    uf2_hal_close_fs(device, &cfg);
+    uf2_hal_close(device);
 
     // print the boot count
     printf("boot_count: %d\n", boot_count);
