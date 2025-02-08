@@ -35,18 +35,18 @@ struct lfs_config cfg = {
 lfs_t lfs;
 lfs_file_t file;
 
-void readu2f(const char * input, struct ram_flash_sim* device) {
+void readu2f(const char * input, struct block_device* bd) {
     FILE* iofile = fopen(input, "rb");
     if (iofile) {
-        readFromFile(device, iofile);
+        readFromFile(bd, iofile);
         fclose(iofile);
     }
 }
 
-void writeu2f(const char * input, struct ram_flash_sim* device) {
+void writeu2f(const char * input, struct block_device* bd) {
     FILE* iofile = fopen(input, "wb");
     if (iofile) {
-        writeToFile(device, iofile);
+        writeToFile(bd, iofile);
     
         fclose(iofile);
     }
@@ -63,9 +63,9 @@ int main(int argc, char* argv[]) {
     const char* infile = argv[1];
     const char* outfile = argc == 3 ? argv[2] : infile;
 
-    struct ram_flash_sim* device = uf2_hal_init(PICO_FLASH_BASE_ADDR);
-    uf2_hal_add_fs(device, &cfg, FLASHFS_BASE_ADDR);
-    readu2f(infile, device);
+    struct block_device* bd = uf2_hal_init(PICO_FLASH_BASE_ADDR);
+    uf2_hal_add_fs(bd, &cfg, FLASHFS_BASE_ADDR);
+    readu2f(infile, bd);
 
     // mount the filesystem
     int err = lfs_mount(&lfs, &cfg);
@@ -92,10 +92,10 @@ int main(int argc, char* argv[]) {
 
     // release any resources we were using
     lfs_unmount(&lfs);
-    writeu2f(outfile, device);
+    writeu2f(outfile, bd);
 
-    uf2_hal_close_fs(device, &cfg);
-    uf2_hal_close(device);
+    uf2_hal_close_fs(bd, &cfg);
+    uf2_hal_close(bd);
 
     // print the boot count
     printf("boot_count: %d\n", boot_count);

@@ -18,7 +18,7 @@
  * out to a uf2 file for flashing.
  */
 
-struct ram_flash_sim {
+struct block_device {
     struct flash_block* device_blocks[PICO_DEVICE_BLOCK_COUNT];
 
     uint32_t base_address;
@@ -32,9 +32,9 @@ struct flash_page {
     uint8_t data[PICO_PROG_PAGE_SIZE];
 };
 
-struct ram_flash_sim device;
+struct block_device device;
 
-struct ram_flash_sim* uf2_hal_init(uint32_t flash_base_address) {
+struct block_device* uf2_hal_init(uint32_t flash_base_address) {
 
     device.base_address = flash_base_address;
     for (int i = 0; i < PICO_DEVICE_BLOCK_COUNT; i++) {
@@ -44,53 +44,53 @@ struct ram_flash_sim* uf2_hal_init(uint32_t flash_base_address) {
     return &device;
 }
 
-void uf2_hal_close(struct ram_flash_sim* device) {
+void uf2_hal_close(struct block_device* bd) {
 
 }
 
-uint32_t dvBaseAddress(struct ram_flash_sim* block_device) {
-    return block_device->base_address;
+uint32_t dvBaseAddress(struct block_device* bd) {
+    return bd->base_address;
 }
 
-uint32_t getDeviceBlockNo(struct ram_flash_sim* device, uint32_t address) {
-    uint32_t block = (address - device->base_address) / PICO_ERASE_PAGE_SIZE;
+uint32_t getDeviceBlockNo(struct block_device* bd, uint32_t address) {
+    uint32_t block = (address - bd->base_address) / PICO_ERASE_PAGE_SIZE;
 
     return block;
 }
 
-void dvRemoveBlock(struct ram_flash_sim* block_device, uint32_t address) {
+void dvRemoveBlock(struct block_device* bd, uint32_t address) {
 
-    uint32_t block = getDeviceBlockNo(block_device, address);
+    uint32_t block = getDeviceBlockNo(bd, address);
 
-    if (block_device->device_blocks[block]) {
+    if (bd->device_blocks[block]) {
         for (int i = 0; i < PICO_FLASH_PAGE_PER_BLOCK; i++) {
-            if (block_device->device_blocks[block]->pages[i]) {
-                free(block_device->device_blocks[block]->pages[i]);
-                block_device->device_blocks[block]->pages[i] = NULL;
+            if (bd->device_blocks[block]->pages[i]) {
+                free(bd->device_blocks[block]->pages[i]);
+                bd->device_blocks[block]->pages[i] = NULL;
             }
         }
-        free(block_device->device_blocks[block]);
-        block_device->device_blocks[block] = NULL;
+        free(bd->device_blocks[block]);
+        bd->device_blocks[block] = NULL;
     }
 }
 
-struct flash_block* getOrCreateDeviceBlock(struct ram_flash_sim* device, uint32_t address) {
-    uint32_t block = getDeviceBlockNo(device, address);
+struct flash_block* getOrCreateDeviceBlock(struct block_device* bd, uint32_t address) {
+    uint32_t block = getDeviceBlockNo(bd, address);
 
-    if (device->device_blocks[block] == NULL) {
-        device->device_blocks[block] = malloc(sizeof(struct flash_block));
+    if (bd->device_blocks[block] == NULL) {
+        bd->device_blocks[block] = malloc(sizeof(struct flash_block));
         for (int p = 0; p < PICO_FLASH_PAGE_PER_BLOCK; p++) {
-            device->device_blocks[block]->pages[p] = NULL;
+            bd->device_blocks[block]->pages[p] = NULL;
         }
     }
 
-    return device->device_blocks[block];
+    return bd->device_blocks[block];
 }
 
-void dumpBlocks(struct ram_flash_sim* block_device) {
+void dumpBlocks(struct block_device* bd) {
     for (int i = 0; i < PICO_DEVICE_BLOCK_COUNT; i++) {
-        if (block_device->device_blocks[i]) {
-            printf("Block %d: %08x\n", i, block_device->base_address + i * PICO_ERASE_PAGE_SIZE);
+        if (bd->device_blocks[i]) {
+            printf("Block %d: %08x\n", i, bd->base_address + i * PICO_ERASE_PAGE_SIZE);
         }
     }
 }
@@ -103,10 +103,10 @@ struct flash_page* getOrCreatePage(struct flash_block* flash_block, uint32_t p) 
     return flash_block->pages[p];
 }
 
-void dvInsertData(struct ram_flash_sim* block_device, uint32_t address, const uint8_t* data, size_t size) {
-    struct flash_block* fb = getOrCreateDeviceBlock(block_device, address);
+void dvInsertData(struct block_device* bd, uint32_t address, const uint8_t* data, size_t size) {
+    struct flash_block* fb = getOrCreateDeviceBlock(bd, address);
 
-    uint32_t page_off = (address - block_device->base_address) % PICO_ERASE_PAGE_SIZE;
+    uint32_t page_off = (address - bd->base_address) % PICO_ERASE_PAGE_SIZE;
     
     uint32_t page = page_off / PICO_PROG_PAGE_SIZE;
     uint32_t in_page_off = page_off % PICO_PROG_PAGE_SIZE;
@@ -121,16 +121,16 @@ void dvInsertData(struct ram_flash_sim* block_device, uint32_t address, const ui
 
 }
 
-void dvReadData(struct ram_flash_sim* block_device, uint32_t address, void *buffer, size_t size) {
+void dvReadData(struct block_device* bd, uint32_t address, void *buffer, size_t size) {
 
-    uint32_t page_offset = (address - block_device->base_address) % PICO_ERASE_PAGE_SIZE;
+    uint32_t page_offset = (address - bd->base_address) % PICO_ERASE_PAGE_SIZE;
 
     uint32_t prog_page = page_offset / PICO_PROG_PAGE_SIZE;
     uint32_t byte_offset = page_offset % PICO_PROG_PAGE_SIZE;
 
-    uint32_t block = getDeviceBlockNo(block_device, address);
+    uint32_t block = getDeviceBlockNo(bd, address);
 
-    struct flash_block * candidate = block_device->device_blocks[block];
+    struct flash_block * candidate = bd->device_blocks[block];
     if (   candidate
         && candidate->pages[prog_page]) {
         printf("Read   available block %d, off %d (size: %lu) as %08x, %d\n", block, page_offset, size, prog_page, byte_offset);
@@ -141,13 +141,13 @@ void dvReadData(struct ram_flash_sim* block_device, uint32_t address, void *buff
     }
 }
 
-int countPages(struct ram_flash_sim* block_device) {
+int countPages(struct block_device* bd) {
     int count = 0;
 
     for (int i = 0; i < PICO_DEVICE_BLOCK_COUNT; i++) {
-        if (block_device->device_blocks[i]) {
+        if (bd->device_blocks[i]) {
             for (int p = 0; p < PICO_FLASH_PAGE_PER_BLOCK; p++) {
-                if (block_device->device_blocks[i]->pages[p]) {
+                if (bd->device_blocks[i]->pages[p]) {
                     count++;
                 }
             }
@@ -158,20 +158,20 @@ int countPages(struct ram_flash_sim* block_device) {
 }
 
 
-bool writeToFile(struct ram_flash_sim* device, FILE* output) {
-    int total = countPages(device);
+bool writeToFile(struct block_device* bd, FILE* output) {
+    int total = countPages(bd);
 
     int cursor = 0;
 
     for (int i = 0; i < PICO_DEVICE_BLOCK_COUNT; i++) {
-        if (device->device_blocks[i]) {
+        if (bd->device_blocks[i]) {
             for (int p = 0; p < PICO_FLASH_PAGE_PER_BLOCK; p++) {
-                if (device->device_blocks[i]->pages[p]) {
+                if (bd->device_blocks[i]->pages[p]) {
                     UF2_Block b;
                     b.magicStart0 = UF2_MAGIC_START0;
                     b.magicStart1 = UF2_MAGIC_START1;
                     b.flags = UF2_FLAG_FAMILY_ID;
-                    b.targetAddr = device->base_address + i * PICO_ERASE_PAGE_SIZE + p * PICO_PROG_PAGE_SIZE;
+                    b.targetAddr = bd->base_address + i * PICO_ERASE_PAGE_SIZE + p * PICO_PROG_PAGE_SIZE;
                     b.payloadSize = PICO_PROG_PAGE_SIZE;
                     b.blockNo = cursor;
                     b.numBlocks = total;
@@ -179,7 +179,7 @@ bool writeToFile(struct ram_flash_sim* device, FILE* output) {
                     // documented as FamilyID, Filesize or 0.
                     b.reserved = PICO_UF2_FAMILYID;
 
-                    uint8_t* source = &device->device_blocks[i]->pages[p]->data[0];
+                    uint8_t* source = &bd->device_blocks[i]->pages[p]->data[0];
 
                     memcpy(b.data, source, PICO_PROG_PAGE_SIZE);
 
@@ -201,14 +201,14 @@ bool writeToFile(struct ram_flash_sim* device, FILE* output) {
     return true;
 }
 
-bool readFromFile(struct ram_flash_sim* device, FILE* input) {
+bool readFromFile(struct block_device* bd, FILE* input) {
 
     UF2_Block b;
     while (fread(&b, sizeof(UF2_Block), 1, input)) {
         assert(b.magicStart0 == UF2_MAGIC_START0);
         assert(b.magicStart1 == UF2_MAGIC_START1);
         assert(b.magicEnd == UF2_MAGIC_END);
-        dvInsertData(device, b.targetAddr, b.data, b.payloadSize);
+        dvInsertData(bd, b.targetAddr, b.data, b.payloadSize);
     }
 
     return true;

@@ -5,7 +5,7 @@
 #include "pico_flash_fs.h"
 
 struct flash_fs {
-    struct ram_flash_sim* device;
+    struct block_device* device;
     uint32_t fs_device_offset;
 };
 
@@ -20,18 +20,18 @@ uint32_t fsAddressForBlock(struct flash_fs* fs, uint32_t block, uint32_t off) {
 
 
 
-void uf2_hal_add_fs(struct ram_flash_sim* block_device, struct lfs_config* c, uint32_t fs_base_address) {
+void uf2_hal_add_fs(struct block_device* bd, struct lfs_config* c, uint32_t fs_base_address) {
 
-    uint32_t device_base = dvBaseAddress(block_device);
+    uint32_t device_base = dvBaseAddress(bd);
 
     struct flash_fs* fs = malloc(sizeof(struct flash_fs));
-    fs->device = block_device;
+    fs->device = bd;
     fs->fs_device_offset = fs_base_address - device_base;
 
     c->context = fs;
 }
 
-void uf2_hal_close_fs(struct ram_flash_sim* device, struct lfs_config* c) {
+void uf2_hal_close_fs(struct block_device* bd, struct lfs_config* c) {
 
     free(c->context);
     c->context = NULL;
