@@ -2,7 +2,8 @@
 #define uf2_lfs_hal_h
 
 #include "littlefs/lfs.h"
-#include "block_device.h"
+
+struct ram_flash_sim;
 
 void uf2_hal_add_fs(struct ram_flash_sim* block_device, struct lfs_config* c, uint32_t fs_base_address);
 void uf2_hal_close_fs(struct ram_flash_sim* block_device, struct lfs_config* c);

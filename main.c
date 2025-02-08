@@ -2,6 +2,7 @@
 
 #include "littlefs/lfs.h"
 
+#include "block_device.h"
 #include "uf2_lfs_hal.h"
 #include "pico_flash_fs.h"
 
