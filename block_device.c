@@ -106,15 +106,9 @@ void bdWrite(struct block_device* bd, uint32_t address, const uint8_t* data, siz
     _bdWrite(bd, block, page, data, size);
 }
 
-void bdRead(struct block_device* bd, uint32_t address, void *buffer, size_t size) {
+void _bdRead(struct block_device* bd, uint32_t block, uint32_t page, uint32_t off, uint8_t* buffer, size_t size) {
 
-    uint32_t page_offset = (address - bd->base_address) % PICO_ERASE_PAGE_SIZE;
-    uint32_t page = page_offset / PICO_PROG_PAGE_SIZE;
-    uint32_t in_page_offset = page_offset % PICO_PROG_PAGE_SIZE;
-
-    uint32_t block = getDeviceBlockNo(bd, address);
-
-    uint32_t storage_offset = address - bd->base_address;
+    uint32_t storage_offset = bdStorageOffset(block, page) + off;
 
     if (   bd->block_present[block]
         && bd->page_present[block][page]) {
@@ -124,7 +118,19 @@ void bdRead(struct block_device* bd, uint32_t address, void *buffer, size_t size
     else {
         printf("Read unavailable page");
     }
-    printf("[%d][%d] off %d (size: %lu) [%08x]\n", block, page, in_page_offset, size, address);
+    printf("[%d][%d] off %d (size: %lu)\n", block, page, off, size);
+}
+
+
+void bdRead(struct block_device* bd, uint32_t address, uint8_t* buffer, size_t size) {
+
+    uint32_t page_offset = (address - bd->base_address) % PICO_ERASE_PAGE_SIZE;
+    uint32_t page = page_offset / PICO_PROG_PAGE_SIZE;
+    uint32_t in_page_offset = page_offset % PICO_PROG_PAGE_SIZE;
+
+    uint32_t block = getDeviceBlockNo(bd, address);
+
+    _bdRead(bd, block, page, in_page_offset, buffer, size);
 }
 
 int countPages(struct block_device* bd) {
