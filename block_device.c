@@ -47,9 +47,6 @@ struct block_device* bdCreate(uint32_t flash_base_address) {
 }
 
 void bdDestroy(struct block_device* bd) {
-    for (int b = 0; b < PICO_DEVICE_BLOCK_COUNT; b++) {
-        _bdDestroyBlock(bd, b);
-    }
     free(bd);
 }
 
@@ -59,28 +56,13 @@ uint32_t getDeviceBlockNo(struct block_device* bd, uint32_t address) {
     return block;
 }
 
-void _bdDestroyBlock(struct block_device* bd, uint32_t block) {
-    if (bd->block_present[block]) {
-        for (int p = 0; p < PICO_FLASH_PAGE_PER_BLOCK; p++) {
-            bd->page_present[block][p] = false;
-        }
+void _bdEraseBlock(struct block_device* bd, uint32_t block) {
 
-        bd->block_present[block] = false;
-    }
-}
-
-void _bdAllocateBlock(struct block_device* bd, uint32_t block) {
-
-    assert(!bd->block_present[block]);
-    bd->block_present[block] = true;
     for (int p = 0; p < PICO_FLASH_PAGE_PER_BLOCK; p++) {
         bd->page_present[block][p] = false;
     }
-}
 
-void _bdEraseBlock(struct block_device* bd, uint32_t block) {
-    _bdDestroyBlock(bd, block);
-    _bdAllocateBlock(bd, block);
+    bd->block_present[block] = true;
 }
 
 void bdEraseBlock(struct block_device* bd, uint32_t address) {
