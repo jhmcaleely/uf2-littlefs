@@ -36,9 +36,9 @@ struct block_device* bdCreate(uint32_t flash_base_address) {
 
     bd->base_address = flash_base_address;
 
-    for (int i = 0; i < PICO_DEVICE_BLOCK_COUNT; i++) {
+    for (int b = 0; b < PICO_DEVICE_BLOCK_COUNT; b++) {
         for (int p = 0; p < PICO_FLASH_PAGE_PER_BLOCK; p++) {
-            bd->page_present[i][p] = false;
+            bd->page_present[b][p] = false;
         }
     }
 
@@ -70,10 +70,10 @@ void bdEraseBlock(struct block_device* bd, uint32_t address) {
 }
 
 void bdDebugPrint(struct block_device* bd) {
-    for (int i = 0; i < PICO_DEVICE_BLOCK_COUNT; i++) {
+    for (int b = 0; b < PICO_DEVICE_BLOCK_COUNT; b++) {
         for (int p = 0; p < PICO_FLASH_PAGE_PER_BLOCK; p++) {
-            if (bd->page_present[i][p]) {
-                printf("Page [%d, %d]: %08x\n", i, p, bd->base_address + bdStorageOffset(i, p));
+            if (bd->page_present[b][p]) {
+                printf("Page [%d, %d]: %08x\n", b, p, bd->base_address + bdStorageOffset(b, p));
             }
         }
     }
@@ -131,9 +131,9 @@ void bdRead(struct block_device* bd, uint32_t address, uint8_t* buffer, size_t s
 int countPages(struct block_device* bd) {
     int count = 0;
 
-    for (int i = 0; i < PICO_DEVICE_BLOCK_COUNT; i++) {
+    for (int b = 0; b < PICO_DEVICE_BLOCK_COUNT; b++) {
         for (int p = 0; p < PICO_FLASH_PAGE_PER_BLOCK; p++) {
-            if (bd->page_present[i][p]) {
+            if (bd->page_present[b][p]) {
                 count++;
             }
         }
@@ -148,31 +148,31 @@ bool bdWriteToUF2(struct block_device* bd, FILE* output) {
 
     int cursor = 0;
 
-    for (int i = 0; i < PICO_DEVICE_BLOCK_COUNT; i++) {
+    for (int b = 0; b < PICO_DEVICE_BLOCK_COUNT; b++) {
         for (int p = 0; p < PICO_FLASH_PAGE_PER_BLOCK; p++) {
-            if (bd->page_present[i][p]) {
-                UF2_Block b;
-                b.magicStart0 = UF2_MAGIC_START0;
-                b.magicStart1 = UF2_MAGIC_START1;
-                b.flags = UF2_FLAG_FAMILY_ID;
-                b.targetAddr = bd->base_address + bdStorageOffset(i, p);
-                b.payloadSize = PICO_PROG_PAGE_SIZE;
-                b.blockNo = cursor;
-                b.numBlocks = total;
+            if (bd->page_present[b][p]) {
+                UF2_Block ub;
+                ub.magicStart0 = UF2_MAGIC_START0;
+                ub.magicStart1 = UF2_MAGIC_START1;
+                ub.flags = UF2_FLAG_FAMILY_ID;
+                ub.targetAddr = bd->base_address + bdStorageOffset(b, p);
+                ub.payloadSize = PICO_PROG_PAGE_SIZE;
+                ub.blockNo = cursor;
+                ub.numBlocks = total;
                 
                 // documented as FamilyID, Filesize or 0.
-                b.reserved = PICO_UF2_FAMILYID;
+                ub.reserved = PICO_UF2_FAMILYID;
 
-                bdRead(bd, b.targetAddr, b.data, PICO_PROG_PAGE_SIZE);
+                bdRead(bd, ub.targetAddr, ub.data, PICO_PROG_PAGE_SIZE);
 
                 // Zero fill the undefined space
-                memset(&b.data[PICO_PROG_PAGE_SIZE], 0, sizeof(b.data) - PICO_PROG_PAGE_SIZE);
+                memset(&ub.data[PICO_PROG_PAGE_SIZE], 0, sizeof(ub.data) - PICO_PROG_PAGE_SIZE);
 
-                b.magicEnd = UF2_MAGIC_END;
+                ub.magicEnd = UF2_MAGIC_END;
                 
-                printf("uf2page: %08x, %d\n", b.targetAddr, b.payloadSize);
+                printf("uf2page: %08x, %d\n", ub.targetAddr, ub.payloadSize);
 
-                fwrite(&b, sizeof(b), 1, output);
+                fwrite(&ub, sizeof(ub), 1, output);
 
                 cursor++;
             }
@@ -184,16 +184,16 @@ bool bdWriteToUF2(struct block_device* bd, FILE* output) {
 
 bool bdReadFromUF2(struct block_device* bd, FILE* input) {
 
-    UF2_Block b;
-    while (fread(&b, sizeof(UF2_Block), 1, input)) {
-        assert(b.magicStart0 == UF2_MAGIC_START0);
-        assert(b.magicStart1 == UF2_MAGIC_START1);
-        assert(b.magicEnd == UF2_MAGIC_END);
-        if (((b.targetAddr - bd->base_address) % PICO_ERASE_PAGE_SIZE) == 0) {
-            bdEraseBlock(bd, b.targetAddr);
+    UF2_Block ub;
+    while (fread(&ub, sizeof(UF2_Block), 1, input)) {
+        assert(ub.magicStart0 == UF2_MAGIC_START0);
+        assert(ub.magicStart1 == UF2_MAGIC_START1);
+        assert(ub.magicEnd == UF2_MAGIC_END);
+        if (((ub.targetAddr - bd->base_address) % PICO_ERASE_PAGE_SIZE) == 0) {
+            bdEraseBlock(bd, ub.targetAddr);
         }
 
-        bdWrite(bd, b.targetAddr, b.data, b.payloadSize);
+        bdWrite(bd, ub.targetAddr, ub.data, ub.payloadSize);
     }
 
     return true;
