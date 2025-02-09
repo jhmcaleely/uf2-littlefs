@@ -120,12 +120,13 @@ void bdRead(struct block_device* bd, uint32_t address, void *buffer, size_t size
 
     if (   bd->block_present[block]
         && bd->page_present[block][page]) {
-        printf("Read   available block %d, off %d (size: %lu) as %08x, %d\n", block, page_offset, size, page, in_page_offset);
+        printf("Read   available page");
         memcpy(buffer, &bd->storage[storage_offset], size);
     }
     else {
-        printf("Read unavailable block %d, off %d (size: %lu) as %08x, %d\n", block, page_offset, size, page, in_page_offset);
+        printf("Read unavailable page");
     }
+    printf("[%d][%d] off %d (size: %lu) [%08x]\n", block, page, in_page_offset, size, address);
 }
 
 int countPages(struct block_device* bd) {
