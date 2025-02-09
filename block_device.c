@@ -48,10 +48,6 @@ void uf2_hal_close(struct block_device* bd) {
 
 }
 
-uint32_t dvBaseAddress(struct block_device* bd) {
-    return bd->base_address;
-}
-
 uint32_t getDeviceBlockNo(struct block_device* bd, uint32_t address) {
     uint32_t block = (address - bd->base_address) / PICO_ERASE_PAGE_SIZE;
 

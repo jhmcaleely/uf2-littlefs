@@ -6,27 +6,24 @@
 
 struct flash_fs {
     struct block_device* device;
-    uint32_t fs_device_offset;
+    uint32_t fs_flash_base_address;
 };
 
 uint32_t fsAddressForBlock(struct flash_fs* fs, uint32_t block, uint32_t off) {
 
     uint32_t byte_offset = block * PICO_ERASE_PAGE_SIZE + off;
 
-    uint32_t device_base = dvBaseAddress(fs->device);
-
-    return device_base + fs->fs_device_offset + byte_offset;
+    return fs->fs_flash_base_address + byte_offset;
 }
 
 
 
 void uf2_hal_add_fs(struct block_device* bd, struct lfs_config* c, uint32_t fs_base_address) {
 
-    uint32_t device_base = dvBaseAddress(bd);
 
     struct flash_fs* fs = malloc(sizeof(struct flash_fs));
     fs->device = bd;
-    fs->fs_device_offset = fs_base_address - device_base;
+    fs->fs_flash_base_address = fs_base_address;
 
     c->context = fs;
 }

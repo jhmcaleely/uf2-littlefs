@@ -9,8 +9,6 @@ struct block_device;
 struct block_device* uf2_hal_init(uint32_t flash_base_address);
 void uf2_hal_close(struct block_device* bd);
 
-uint32_t dvBaseAddress(struct block_device* bd);
-
 void dvRemoveBlock(struct block_device* bd, uint32_t address);
 void dumpBlocks(struct block_device* bd);
 void dvInsertData(struct block_device* bd, uint32_t address, const uint8_t* data, size_t size);
