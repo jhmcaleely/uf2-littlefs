@@ -13,8 +13,6 @@
 #define PICO_DEVICE_BLOCK_COUNT (PICO_FLASH_SIZE_BYTES / PICO_ERASE_PAGE_SIZE)
 #define PICO_FLASH_PAGE_PER_BLOCK (PICO_ERASE_PAGE_SIZE / PICO_PROG_PAGE_SIZE)
 
-void _bdDestroyBlock(struct block_device* bd, uint32_t block);
-
 /*
  * A RAM block device that mimics a Pico Flash device. We can write this 
  * out to a uf2 file for flashing.
