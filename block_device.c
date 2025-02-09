@@ -9,14 +9,14 @@
 #include "pico_flash_fs.h"
 #include "uf2/uf2.h"
 
-#define PICO_UF2_FAMILYID 0xe48bff56
-#define PICO_DEVICE_BLOCK_COUNT (PICO_FLASH_SIZE_BYTES / PICO_ERASE_PAGE_SIZE)
-#define PICO_FLASH_PAGE_PER_BLOCK (PICO_ERASE_PAGE_SIZE / PICO_PROG_PAGE_SIZE)
-
 /*
  * A RAM block device that mimics a Pico Flash device. We can write this 
  * out to a uf2 file for flashing.
  */
+
+#define PICO_UF2_FAMILYID 0xe48bff56
+#define PICO_DEVICE_BLOCK_COUNT (PICO_FLASH_SIZE_BYTES / PICO_ERASE_PAGE_SIZE)
+#define PICO_FLASH_PAGE_PER_BLOCK (PICO_ERASE_PAGE_SIZE / PICO_PROG_PAGE_SIZE)
 
 struct block_device {
     uint8_t storage[PICO_FLASH_SIZE_BYTES];
@@ -124,7 +124,6 @@ void _bdRead(struct block_device* bd, uint32_t block, uint32_t page, uint32_t of
     printf("[%d][%d] off %d (size: %lu)\n", block, page, off, size);
 }
 
-
 void bdRead(struct block_device* bd, uint32_t address, uint8_t* buffer, size_t size) {
 
     struct page_address ad;
@@ -147,11 +146,9 @@ int countPages(struct block_device* bd) {
     return count;
 }
 
-
-bool bdWriteToUF2(struct block_device* bd, FILE* output) {
-    int total = countPages(bd);
-
-    int cursor = 0;
+void bdWriteToUF2(struct block_device* bd, FILE* output) {
+    int pageTotal = countPages(bd);
+    int pageCursor = 0;
 
     for (int b = 0; b < PICO_DEVICE_BLOCK_COUNT; b++) {
         for (int p = 0; p < PICO_FLASH_PAGE_PER_BLOCK; p++) {
@@ -162,8 +159,8 @@ bool bdWriteToUF2(struct block_device* bd, FILE* output) {
                 ub.flags = UF2_FLAG_FAMILY_ID;
                 ub.targetAddr = bd->base_address + bdStorageOffset(b, p);
                 ub.payloadSize = PICO_PROG_PAGE_SIZE;
-                ub.blockNo = cursor;
-                ub.numBlocks = total;
+                ub.blockNo = pageCursor;
+                ub.numBlocks = pageTotal;
                 
                 // documented as FamilyID, Filesize or 0.
                 ub.reserved = PICO_UF2_FAMILYID;
@@ -179,27 +176,24 @@ bool bdWriteToUF2(struct block_device* bd, FILE* output) {
 
                 fwrite(&ub, sizeof(ub), 1, output);
 
-                cursor++;
+                pageCursor++;
             }
         }
     }
-
-    return true;
 }
 
-bool bdReadFromUF2(struct block_device* bd, FILE* input) {
+void bdReadFromUF2(struct block_device* bd, FILE* input) {
 
     UF2_Block ub;
     while (fread(&ub, sizeof(UF2_Block), 1, input)) {
         assert(ub.magicStart0 == UF2_MAGIC_START0);
         assert(ub.magicStart1 == UF2_MAGIC_START1);
         assert(ub.magicEnd == UF2_MAGIC_END);
+        // erase a block before writing any pages to it.
         if (((ub.targetAddr - bd->base_address) % PICO_ERASE_PAGE_SIZE) == 0) {
             bdEraseBlock(bd, ub.targetAddr);
         }
 
         bdWrite(bd, ub.targetAddr, ub.data, ub.payloadSize);
     }
-
-    return true;
 }
