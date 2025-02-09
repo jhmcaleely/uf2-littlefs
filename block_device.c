@@ -26,8 +26,25 @@ struct block_device {
     uint32_t base_address;
 };
 
+struct page_address {
+    uint32_t block;
+    uint32_t page;
+    uint32_t offset;
+};
+
 uint32_t bdStorageOffset(uint32_t block, uint32_t page) {
     return block * PICO_ERASE_PAGE_SIZE + page * PICO_PROG_PAGE_SIZE;
+}
+
+uint32_t getDeviceBlockNo(struct block_device* bd, uint32_t address) {
+    return (address - bd->base_address) / PICO_ERASE_PAGE_SIZE;
+}
+
+void bdPageAddresss(struct block_device* bd, struct page_address* ad, uint32_t address) {
+    uint32_t page_offset = (address - bd->base_address) % PICO_ERASE_PAGE_SIZE;    
+    ad->page = page_offset / PICO_PROG_PAGE_SIZE;
+    ad->offset = page_offset % PICO_PROG_PAGE_SIZE;
+    ad->block = getDeviceBlockNo(bd, address);
 }
 
 struct block_device* bdCreate(uint32_t flash_base_address) {
@@ -47,12 +64,6 @@ struct block_device* bdCreate(uint32_t flash_base_address) {
 
 void bdDestroy(struct block_device* bd) {
     free(bd);
-}
-
-uint32_t getDeviceBlockNo(struct block_device* bd, uint32_t address) {
-    uint32_t block = (address - bd->base_address) / PICO_ERASE_PAGE_SIZE;
-
-    return block;
 }
 
 void _bdEraseBlock(struct block_device* bd, uint32_t block) {
@@ -91,15 +102,12 @@ void _bdWrite(struct block_device* bd, uint32_t block, uint32_t page, const uint
 void bdWrite(struct block_device* bd, uint32_t address, const uint8_t* data, size_t size) {
     assert(size <= PICO_PROG_PAGE_SIZE);
 
-    uint32_t page_offset = (address - bd->base_address) % PICO_ERASE_PAGE_SIZE;    
-    uint32_t page = page_offset / PICO_PROG_PAGE_SIZE;
-    uint32_t in_page_offset = page_offset % PICO_PROG_PAGE_SIZE;
+    struct page_address ad;
+    bdPageAddresss(bd, &ad, address);
 
-    assert(in_page_offset == 0);
+    assert(ad.offset == 0);
 
-    uint32_t block = getDeviceBlockNo(bd, address);
-
-    _bdWrite(bd, block, page, data, size);
+    _bdWrite(bd, ad.block, ad.page, data, size);
 }
 
 void _bdRead(struct block_device* bd, uint32_t block, uint32_t page, uint32_t off, uint8_t* buffer, size_t size) {
@@ -119,13 +127,10 @@ void _bdRead(struct block_device* bd, uint32_t block, uint32_t page, uint32_t of
 
 void bdRead(struct block_device* bd, uint32_t address, uint8_t* buffer, size_t size) {
 
-    uint32_t page_offset = (address - bd->base_address) % PICO_ERASE_PAGE_SIZE;
-    uint32_t page = page_offset / PICO_PROG_PAGE_SIZE;
-    uint32_t in_page_offset = page_offset % PICO_PROG_PAGE_SIZE;
+    struct page_address ad;
+    bdPageAddresss(bd, &ad, address);
 
-    uint32_t block = getDeviceBlockNo(bd, address);
-
-    _bdRead(bd, block, page, in_page_offset, buffer, size);
+    _bdRead(bd, ad.block, ad.page, ad.offset, buffer, size);
 }
 
 int countPages(struct block_device* bd) {
