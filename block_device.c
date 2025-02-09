@@ -44,7 +44,7 @@ struct block_device* bdCreate(uint32_t flash_base_address) {
     return &device;
 }
 
-void uf2_hal_close(struct block_device* bd) {
+void bdDestroy(struct block_device* bd) {
 
 }
 
@@ -54,7 +54,7 @@ uint32_t getDeviceBlockNo(struct block_device* bd, uint32_t address) {
     return block;
 }
 
-void dvRemoveBlock(struct block_device* bd, uint32_t address) {
+void bdEraseBlock(struct block_device* bd, uint32_t address) {
 
     uint32_t block = getDeviceBlockNo(bd, address);
 
@@ -83,7 +83,7 @@ struct flash_block* getOrCreateDeviceBlock(struct block_device* bd, uint32_t add
     return bd->device_blocks[block];
 }
 
-void dumpBlocks(struct block_device* bd) {
+void bdDebugPrint(struct block_device* bd) {
     for (int i = 0; i < PICO_DEVICE_BLOCK_COUNT; i++) {
         if (bd->device_blocks[i]) {
             printf("Block %d: %08x\n", i, bd->base_address + i * PICO_ERASE_PAGE_SIZE);
@@ -99,7 +99,7 @@ struct flash_page* getOrCreatePage(struct flash_block* flash_block, uint32_t p) 
     return flash_block->pages[p];
 }
 
-void dvInsertData(struct block_device* bd, uint32_t address, const uint8_t* data, size_t size) {
+void bdWrite(struct block_device* bd, uint32_t address, const uint8_t* data, size_t size) {
     struct flash_block* fb = getOrCreateDeviceBlock(bd, address);
 
     uint32_t page_off = (address - bd->base_address) % PICO_ERASE_PAGE_SIZE;
@@ -117,7 +117,7 @@ void dvInsertData(struct block_device* bd, uint32_t address, const uint8_t* data
 
 }
 
-void dvReadData(struct block_device* bd, uint32_t address, void *buffer, size_t size) {
+void bdRead(struct block_device* bd, uint32_t address, void *buffer, size_t size) {
 
     uint32_t page_offset = (address - bd->base_address) % PICO_ERASE_PAGE_SIZE;
 
@@ -154,7 +154,7 @@ int countPages(struct block_device* bd) {
 }
 
 
-bool writeToFile(struct block_device* bd, FILE* output) {
+bool bdWriteToUF2(struct block_device* bd, FILE* output) {
     int total = countPages(bd);
 
     int cursor = 0;
@@ -197,14 +197,14 @@ bool writeToFile(struct block_device* bd, FILE* output) {
     return true;
 }
 
-bool readFromFile(struct block_device* bd, FILE* input) {
+bool bdReadFromUF2(struct block_device* bd, FILE* input) {
 
     UF2_Block b;
     while (fread(&b, sizeof(UF2_Block), 1, input)) {
         assert(b.magicStart0 == UF2_MAGIC_START0);
         assert(b.magicStart1 == UF2_MAGIC_START1);
         assert(b.magicEnd == UF2_MAGIC_END);
-        dvInsertData(bd, b.targetAddr, b.data, b.payloadSize);
+        bdWrite(bd, b.targetAddr, b.data, b.payloadSize);
     }
 
     return true;

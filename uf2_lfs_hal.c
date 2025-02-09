@@ -16,10 +16,7 @@ uint32_t fsAddressForBlock(struct flash_fs* fs, uint32_t block, uint32_t off) {
     return fs->fs_flash_base_address + byte_offset;
 }
 
-
-
-void uf2_hal_add_fs(struct block_device* bd, struct lfs_config* c, uint32_t fs_base_address) {
-
+void bdfs_create_hal_at(struct block_device* bd, struct lfs_config* c, uint32_t fs_base_address) {
 
     struct flash_fs* fs = malloc(sizeof(struct flash_fs));
     fs->device = bd;
@@ -28,48 +25,48 @@ void uf2_hal_add_fs(struct block_device* bd, struct lfs_config* c, uint32_t fs_b
     c->context = fs;
 }
 
-void uf2_hal_close_fs(struct block_device* bd, struct lfs_config* c) {
+void bdfs_destroy_hal(struct block_device* bd, struct lfs_config* c) {
 
     free(c->context);
     c->context = NULL;
 }
 
-int uf2_read_flash_block(const struct lfs_config *c, lfs_block_t block, lfs_off_t off, void *buffer, lfs_size_t size) {
+int bdfs_read(const struct lfs_config *c, lfs_block_t block, lfs_off_t off, void *buffer, lfs_size_t size) {
 
     struct flash_fs* fs = c->context;
 
     uint32_t device_address = fsAddressForBlock(fs, block, off);
 
-    dvReadData(fs->device, device_address, buffer, size);
+    bdRead(fs->device, device_address, buffer, size);
 
     return LFS_ERR_OK; 
 }
 
-int uf2_prog_flash_block(const struct lfs_config *c, lfs_block_t block, lfs_off_t off, const void *buffer, lfs_size_t size) {
+int bdfs_prog_page(const struct lfs_config *c, lfs_block_t block, lfs_off_t off, const void *buffer, lfs_size_t size) {
 
     struct flash_fs* fs = c->context;
 
     uint32_t device_address = fsAddressForBlock(fs, block, off);
 
-    dvInsertData(fs->device, device_address, buffer, size);
+    bdWrite(fs->device, device_address, buffer, size);
 
-    dumpBlocks(fs->device);
+    bdDebugPrint(fs->device);
 
     return LFS_ERR_OK;
 }
 
-int uf2_erase_flash_block(const struct lfs_config *c, lfs_block_t block) {
+int bdfs_erase_block(const struct lfs_config *c, lfs_block_t block) {
 
     struct flash_fs* fs = c->context;
 
     uint32_t device_address = fsAddressForBlock(fs, block, 0);
 
-    dvRemoveBlock(fs->device, device_address);
+    bdEraseBlock(fs->device, device_address);
     
     return LFS_ERR_OK;
 }
 
-int uf2_sync_flash_block(const struct lfs_config *c) {
+int bdfs_sync_block(const struct lfs_config *c) {
 
     return LFS_ERR_OK;
 }

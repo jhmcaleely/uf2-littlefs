@@ -10,10 +10,10 @@
 // configuration of the filesystem is provided by this struct
 struct lfs_config cfg = {
     // block device operations
-    .read  = uf2_read_flash_block,
-    .prog  = uf2_prog_flash_block,
-    .erase = uf2_erase_flash_block,
-    .sync  = uf2_sync_flash_block,
+    .read  = bdfs_read,
+    .prog  = bdfs_prog_page,
+    .erase = bdfs_erase_block,
+    .sync  = bdfs_sync_block,
 
     // block device configuration
 
@@ -38,7 +38,7 @@ lfs_file_t file;
 void readu2f(const char * input, struct block_device* bd) {
     FILE* iofile = fopen(input, "rb");
     if (iofile) {
-        readFromFile(bd, iofile);
+        bdReadFromUF2(bd, iofile);
         fclose(iofile);
     }
 }
@@ -46,7 +46,7 @@ void readu2f(const char * input, struct block_device* bd) {
 void writeu2f(const char * input, struct block_device* bd) {
     FILE* iofile = fopen(input, "wb");
     if (iofile) {
-        writeToFile(bd, iofile);
+        bdWriteToUF2(bd, iofile);
     
         fclose(iofile);
     }
@@ -64,7 +64,7 @@ int main(int argc, char* argv[]) {
     const char* outfile = argc == 3 ? argv[2] : infile;
 
     struct block_device* bd = bdCreate(PICO_FLASH_BASE_ADDR);
-    uf2_hal_add_fs(bd, &cfg, FLASHFS_BASE_ADDR);
+    bdfs_create_hal_at(bd, &cfg, FLASHFS_BASE_ADDR);
     readu2f(infile, bd);
 
     // mount the filesystem
@@ -94,8 +94,8 @@ int main(int argc, char* argv[]) {
     lfs_unmount(&lfs);
     writeu2f(outfile, bd);
 
-    uf2_hal_close_fs(bd, &cfg);
-    uf2_hal_close(bd);
+    bdfs_destroy_hal(bd, &cfg);
+    bdDestroy(bd);
 
     // print the boot count
     printf("boot_count: %d\n", boot_count);

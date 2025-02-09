@@ -5,13 +5,13 @@
 
 struct block_device;
 
-void uf2_hal_add_fs(struct block_device* bd, struct lfs_config* c, uint32_t fs_base_address);
-void uf2_hal_close_fs(struct block_device* bd, struct lfs_config* c);
+void bdfs_create_hal_at(struct block_device* bd, struct lfs_config* c, uint32_t fs_base_address);
+void bdfs_destroy_hal(struct block_device* bd, struct lfs_config* c);
 
 // block device functions required for littlefs
-int uf2_read_flash_block(const struct lfs_config* c, lfs_block_t block, lfs_off_t off, void *buffer, lfs_size_t size);
-int uf2_prog_flash_block(const struct lfs_config* c, lfs_block_t block, lfs_off_t off, const void *buffer, lfs_size_t size);
-int uf2_erase_flash_block(const struct lfs_config* c, lfs_block_t block);
-int uf2_sync_flash_block(const struct lfs_config* c);
+int bdfs_read(const struct lfs_config* c, lfs_block_t block, lfs_off_t off, void *buffer, lfs_size_t size);
+int bdfs_prog_page(const struct lfs_config* c, lfs_block_t block, lfs_off_t off, const void *buffer, lfs_size_t size);
+int bdfs_erase_block(const struct lfs_config* c, lfs_block_t block);
+int bdfs_sync_block(const struct lfs_config* c);
 
 #endif
