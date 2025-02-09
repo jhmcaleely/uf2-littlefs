@@ -35,7 +35,7 @@ struct lfs_config cfg = {
 lfs_t lfs;
 lfs_file_t file;
 
-void readu2f(const char * input, struct block_device* bd) {
+void readuf2(const char * input, struct block_device* bd) {
     FILE* iofile = fopen(input, "rb");
     if (iofile) {
         bdReadFromUF2(bd, iofile);
@@ -43,7 +43,7 @@ void readu2f(const char * input, struct block_device* bd) {
     }
 }
 
-void writeu2f(const char * input, struct block_device* bd) {
+void writeuf2(const char * input, struct block_device* bd) {
     FILE* iofile = fopen(input, "wb");
     if (iofile) {
         bdWriteToUF2(bd, iofile);
@@ -65,7 +65,7 @@ int main(int argc, char* argv[]) {
 
     struct block_device* bd = bdCreate(PICO_FLASH_BASE_ADDR);
     bdfs_create_hal_at(&cfg, bd, FLASHFS_BASE_ADDR);
-    readu2f(infile, bd);
+    readuf2(infile, bd);
 
     // mount the filesystem
     int err = lfs_mount(&lfs, &cfg);
@@ -92,7 +92,7 @@ int main(int argc, char* argv[]) {
 
     // release any resources we were using
     lfs_unmount(&lfs);
-    writeu2f(outfile, bd);
+    writeuf2(outfile, bd);
 
     bdfs_destroy_hal(&cfg);
     bdDestroy(bd);
