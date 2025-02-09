@@ -29,6 +29,10 @@ struct block_device {
     uint32_t base_address;
 };
 
+uint32_t bdStorageOffset(uint32_t block, uint32_t page) {
+    return block * PICO_ERASE_PAGE_SIZE + page * PICO_PROG_PAGE_SIZE;
+}
+
 struct block_device* bdCreate(uint32_t flash_base_address) {
 
     struct block_device* bd = malloc(sizeof(struct block_device));
@@ -84,7 +88,7 @@ void _bdWrite(struct block_device* bd, uint32_t block, uint32_t page, const uint
 
     bd->page_present[block][page] = true;
 
-    uint8_t* target = &bd->storage[0] + block * PICO_ERASE_PAGE_SIZE + page * PICO_PROG_PAGE_SIZE;
+    uint8_t* target = &bd->storage[bdStorageOffset(block, page)];
 
     memcpy(target, data, size);
 }
@@ -150,7 +154,7 @@ bool bdWriteToUF2(struct block_device* bd, FILE* output) {
         if (bd->block_present[i]) {
             for (int p = 0; p < PICO_FLASH_PAGE_PER_BLOCK; p++) {
                 if (bd->page_present[i][p]) {
-                    uint32_t storage_offset = i * PICO_ERASE_PAGE_SIZE + p * PICO_PROG_PAGE_SIZE;
+                    uint32_t storage_offset = bdStorageOffset(i, p);
                     UF2_Block b;
                     b.magicStart0 = UF2_MAGIC_START0;
                     b.magicStart1 = UF2_MAGIC_START1;
