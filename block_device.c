@@ -21,35 +21,36 @@ void _bdDestroyBlock(struct block_device* bd, uint32_t block);
  */
 
 struct block_device {
-    struct flash_block* device_blocks[PICO_DEVICE_BLOCK_COUNT];
+    uint8_t storage[PICO_FLASH_SIZE_BYTES];
+
+    bool block_present[PICO_DEVICE_BLOCK_COUNT];
+    bool page_present[PICO_DEVICE_BLOCK_COUNT][PICO_FLASH_PAGE_PER_BLOCK];
 
     uint32_t base_address;
 };
 
-struct flash_block {
-    struct flash_page* pages[PICO_FLASH_PAGE_PER_BLOCK];
-};
-
-struct flash_page {
-    uint8_t data[PICO_PROG_PAGE_SIZE];
-};
-
-struct block_device device;
-
 struct block_device* bdCreate(uint32_t flash_base_address) {
 
-    device.base_address = flash_base_address;
+    struct block_device* bd = malloc(sizeof(struct block_device));
+
+    bd->base_address = flash_base_address;
+
     for (int i = 0; i < PICO_DEVICE_BLOCK_COUNT; i++) {
-        device.device_blocks[i] = NULL;
+        bd->block_present[i] = false;
+
+        for (int p = 0; p < PICO_FLASH_PAGE_PER_BLOCK; p++) {
+            bd->page_present[i][p] = false;
+        }
     }
 
-    return &device;
+    return bd;
 }
 
 void bdDestroy(struct block_device* bd) {
     for (int b = 0; b < PICO_DEVICE_BLOCK_COUNT; b++) {
         _bdDestroyBlock(bd, b);
     }
+    free(bd);
 }
 
 uint32_t getDeviceBlockNo(struct block_device* bd, uint32_t address) {
@@ -59,28 +60,22 @@ uint32_t getDeviceBlockNo(struct block_device* bd, uint32_t address) {
 }
 
 void _bdDestroyBlock(struct block_device* bd, uint32_t block) {
-    if (bd->device_blocks[block]) {
-        for (int i = 0; i < PICO_FLASH_PAGE_PER_BLOCK; i++) {
-            if (bd->device_blocks[block]->pages[i]) {
-                free(bd->device_blocks[block]->pages[i]);
-                bd->device_blocks[block]->pages[i] = NULL;
-            }
+    if (bd->block_present[block]) {
+        for (int p = 0; p < PICO_FLASH_PAGE_PER_BLOCK; p++) {
+            bd->page_present[block][p] = false;
         }
-        free(bd->device_blocks[block]);
-        bd->device_blocks[block] = NULL;
+
+        bd->block_present[block] = false;
     }
 }
 
-struct flash_block* _bdAllocateBlock(struct block_device* bd, uint32_t block) {
+void _bdAllocateBlock(struct block_device* bd, uint32_t block) {
 
-    assert(bd->device_blocks[block] == NULL);
-
-    bd->device_blocks[block] = malloc(sizeof(struct flash_block));
+    assert(!bd->block_present[block]);
+    bd->block_present[block] = true;
     for (int p = 0; p < PICO_FLASH_PAGE_PER_BLOCK; p++) {
-        bd->device_blocks[block]->pages[p] = NULL;
+        bd->page_present[block][p] = false;
     }
-
-    return bd->device_blocks[block];
 }
 
 void _bdEraseBlock(struct block_device* bd, uint32_t block) {
@@ -97,25 +92,17 @@ void bdEraseBlock(struct block_device* bd, uint32_t address) {
 
 void bdDebugPrint(struct block_device* bd) {
     for (int i = 0; i < PICO_DEVICE_BLOCK_COUNT; i++) {
-        if (bd->device_blocks[i]) {
+        if (bd->block_present[i]) {
             printf("Block %d: %08x\n", i, bd->base_address + i * PICO_ERASE_PAGE_SIZE);
         }
     }
 }
 
-struct flash_page* _bdEnsurePage(struct flash_block* flash_block, uint32_t p) {
-    if (flash_block->pages[p] == NULL) {
-        flash_block->pages[p] = malloc(sizeof(struct flash_page));
-    }
-
-    return flash_block->pages[p];
-}
-
 void _bdWrite(struct block_device* bd, uint32_t block, uint32_t page, const uint8_t* data, size_t size) {
 
-    struct flash_page* fp = _bdEnsurePage(bd->device_blocks[block], page);
+    bd->page_present[block][page] = true;
 
-    uint8_t* target = &fp->data[0];
+    uint8_t* target = &bd->storage[0] + block * PICO_ERASE_PAGE_SIZE + page * PICO_PROG_PAGE_SIZE;
 
     memcpy(target, data, size);
 }
@@ -130,7 +117,7 @@ void bdWrite(struct block_device* bd, uint32_t address, const uint8_t* data, siz
     assert(in_page_offset == 0);
 
     uint32_t block = getDeviceBlockNo(bd, address);
-    assert(bd->device_blocks[block]);
+    assert(bd->block_present[block]);
 
     _bdWrite(bd, block, page, data, size);
 }
@@ -143,11 +130,12 @@ void bdRead(struct block_device* bd, uint32_t address, void *buffer, size_t size
 
     uint32_t block = getDeviceBlockNo(bd, address);
 
-    struct flash_block * candidate = bd->device_blocks[block];
-    if (   candidate
-        && candidate->pages[page]) {
+    uint32_t storage_offset = address - bd->base_address;
+
+    if (   bd->block_present[block]
+        && bd->page_present[block][page]) {
         printf("Read   available block %d, off %d (size: %lu) as %08x, %d\n", block, page_offset, size, page, in_page_offset);
-        memcpy(buffer, &candidate->pages[page]->data[in_page_offset], size);
+        memcpy(buffer, &bd->storage[storage_offset], size);
     }
     else {
         printf("Read unavailable block %d, off %d (size: %lu) as %08x, %d\n", block, page_offset, size, page, in_page_offset);
@@ -158,9 +146,9 @@ int countPages(struct block_device* bd) {
     int count = 0;
 
     for (int i = 0; i < PICO_DEVICE_BLOCK_COUNT; i++) {
-        if (bd->device_blocks[i]) {
+        if (bd->block_present[i]) {
             for (int p = 0; p < PICO_FLASH_PAGE_PER_BLOCK; p++) {
-                if (bd->device_blocks[i]->pages[p]) {
+                if (bd->page_present[i][p]) {
                     count++;
                 }
             }
@@ -177,14 +165,15 @@ bool bdWriteToUF2(struct block_device* bd, FILE* output) {
     int cursor = 0;
 
     for (int i = 0; i < PICO_DEVICE_BLOCK_COUNT; i++) {
-        if (bd->device_blocks[i]) {
+        if (bd->block_present[i]) {
             for (int p = 0; p < PICO_FLASH_PAGE_PER_BLOCK; p++) {
-                if (bd->device_blocks[i]->pages[p]) {
+                if (bd->page_present[i][p]) {
+                    uint32_t storage_offset = i * PICO_ERASE_PAGE_SIZE + p * PICO_PROG_PAGE_SIZE;
                     UF2_Block b;
                     b.magicStart0 = UF2_MAGIC_START0;
                     b.magicStart1 = UF2_MAGIC_START1;
                     b.flags = UF2_FLAG_FAMILY_ID;
-                    b.targetAddr = bd->base_address + i * PICO_ERASE_PAGE_SIZE + p * PICO_PROG_PAGE_SIZE;
+                    b.targetAddr = bd->base_address + storage_offset;
                     b.payloadSize = PICO_PROG_PAGE_SIZE;
                     b.blockNo = cursor;
                     b.numBlocks = total;
@@ -192,7 +181,7 @@ bool bdWriteToUF2(struct block_device* bd, FILE* output) {
                     // documented as FamilyID, Filesize or 0.
                     b.reserved = PICO_UF2_FAMILYID;
 
-                    uint8_t* source = &bd->device_blocks[i]->pages[p]->data[0];
+                    uint8_t* source = &bd->storage[storage_offset];
 
                     memcpy(b.data, source, PICO_PROG_PAGE_SIZE);
 
