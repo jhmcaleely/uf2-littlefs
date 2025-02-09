@@ -21,7 +21,6 @@
 struct block_device {
     uint8_t storage[PICO_FLASH_SIZE_BYTES];
 
-    bool block_present[PICO_DEVICE_BLOCK_COUNT];
     bool page_present[PICO_DEVICE_BLOCK_COUNT][PICO_FLASH_PAGE_PER_BLOCK];
 
     uint32_t base_address;
@@ -38,8 +37,6 @@ struct block_device* bdCreate(uint32_t flash_base_address) {
     bd->base_address = flash_base_address;
 
     for (int i = 0; i < PICO_DEVICE_BLOCK_COUNT; i++) {
-        bd->block_present[i] = false;
-
         for (int p = 0; p < PICO_FLASH_PAGE_PER_BLOCK; p++) {
             bd->page_present[i][p] = false;
         }
@@ -63,8 +60,6 @@ void _bdEraseBlock(struct block_device* bd, uint32_t block) {
     for (int p = 0; p < PICO_FLASH_PAGE_PER_BLOCK; p++) {
         bd->page_present[block][p] = false;
     }
-
-    bd->block_present[block] = true;
 }
 
 void bdEraseBlock(struct block_device* bd, uint32_t address) {
@@ -76,8 +71,10 @@ void bdEraseBlock(struct block_device* bd, uint32_t address) {
 
 void bdDebugPrint(struct block_device* bd) {
     for (int i = 0; i < PICO_DEVICE_BLOCK_COUNT; i++) {
-        if (bd->block_present[i]) {
-            printf("Block %d: %08x\n", i, bd->base_address + i * PICO_ERASE_PAGE_SIZE);
+        for (int p = 0; p < PICO_FLASH_PAGE_PER_BLOCK; p++) {
+            if (bd->page_present[i][p]) {
+                printf("Page [%d, %d]: %08x\n", i, p, bd->base_address + bdStorageOffset(i, p));
+            }
         }
     }
 }
@@ -101,7 +98,6 @@ void bdWrite(struct block_device* bd, uint32_t address, const uint8_t* data, siz
     assert(in_page_offset == 0);
 
     uint32_t block = getDeviceBlockNo(bd, address);
-    assert(bd->block_present[block]);
 
     _bdWrite(bd, block, page, data, size);
 }
@@ -110,8 +106,7 @@ void _bdRead(struct block_device* bd, uint32_t block, uint32_t page, uint32_t of
 
     uint32_t storage_offset = bdStorageOffset(block, page) + off;
 
-    if (   bd->block_present[block]
-        && bd->page_present[block][page]) {
+    if (bd->page_present[block][page]) {
         printf("Read   available page");
         memcpy(buffer, &bd->storage[storage_offset], size);
     }
@@ -137,11 +132,9 @@ int countPages(struct block_device* bd) {
     int count = 0;
 
     for (int i = 0; i < PICO_DEVICE_BLOCK_COUNT; i++) {
-        if (bd->block_present[i]) {
-            for (int p = 0; p < PICO_FLASH_PAGE_PER_BLOCK; p++) {
-                if (bd->page_present[i][p]) {
-                    count++;
-                }
+        for (int p = 0; p < PICO_FLASH_PAGE_PER_BLOCK; p++) {
+            if (bd->page_present[i][p]) {
+                count++;
             }
         }
     }
@@ -156,34 +149,32 @@ bool bdWriteToUF2(struct block_device* bd, FILE* output) {
     int cursor = 0;
 
     for (int i = 0; i < PICO_DEVICE_BLOCK_COUNT; i++) {
-        if (bd->block_present[i]) {
-            for (int p = 0; p < PICO_FLASH_PAGE_PER_BLOCK; p++) {
-                if (bd->page_present[i][p]) {
-                    UF2_Block b;
-                    b.magicStart0 = UF2_MAGIC_START0;
-                    b.magicStart1 = UF2_MAGIC_START1;
-                    b.flags = UF2_FLAG_FAMILY_ID;
-                    b.targetAddr = bd->base_address + bdStorageOffset(i, p);
-                    b.payloadSize = PICO_PROG_PAGE_SIZE;
-                    b.blockNo = cursor;
-                    b.numBlocks = total;
-                    
-                    // documented as FamilyID, Filesize or 0.
-                    b.reserved = PICO_UF2_FAMILYID;
+        for (int p = 0; p < PICO_FLASH_PAGE_PER_BLOCK; p++) {
+            if (bd->page_present[i][p]) {
+                UF2_Block b;
+                b.magicStart0 = UF2_MAGIC_START0;
+                b.magicStart1 = UF2_MAGIC_START1;
+                b.flags = UF2_FLAG_FAMILY_ID;
+                b.targetAddr = bd->base_address + bdStorageOffset(i, p);
+                b.payloadSize = PICO_PROG_PAGE_SIZE;
+                b.blockNo = cursor;
+                b.numBlocks = total;
+                
+                // documented as FamilyID, Filesize or 0.
+                b.reserved = PICO_UF2_FAMILYID;
 
-                    bdRead(bd, b.targetAddr, b.data, PICO_PROG_PAGE_SIZE);
+                bdRead(bd, b.targetAddr, b.data, PICO_PROG_PAGE_SIZE);
 
-                    // Zero fill the undefined space
-                    memset(&b.data[PICO_PROG_PAGE_SIZE], 0, sizeof(b.data) - PICO_PROG_PAGE_SIZE);
+                // Zero fill the undefined space
+                memset(&b.data[PICO_PROG_PAGE_SIZE], 0, sizeof(b.data) - PICO_PROG_PAGE_SIZE);
 
-                    b.magicEnd = UF2_MAGIC_END;
-                    
-                    printf("uf2page: %08x, %d\n", b.targetAddr, b.payloadSize);
+                b.magicEnd = UF2_MAGIC_END;
+                
+                printf("uf2page: %08x, %d\n", b.targetAddr, b.payloadSize);
 
-                    fwrite(&b, sizeof(b), 1, output);
+                fwrite(&b, sizeof(b), 1, output);
 
-                    cursor++;
-                }
+                cursor++;
             }
         }
     }
