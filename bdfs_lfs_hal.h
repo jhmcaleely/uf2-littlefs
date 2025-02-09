@@ -1,5 +1,5 @@
-#ifndef uf2_lfs_hal_h
-#define uf2_lfs_hal_h
+#ifndef bdfs_lfs_hal_h
+#define bdfs_lfs_hal_h
 
 #include "littlefs/lfs.h"
 

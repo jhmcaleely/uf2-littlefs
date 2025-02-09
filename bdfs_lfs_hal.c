@@ -1,7 +1,7 @@
 #include <stdio.h>
 
 #include "block_device.h"
-#include "uf2_lfs_hal.h"
+#include "bdfs_lfs_hal.h"
 #include "pico_flash_fs.h"
 
 struct flash_fs {
