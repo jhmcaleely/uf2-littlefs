@@ -64,7 +64,7 @@ int main(int argc, char* argv[]) {
     const char* outfile = argc == 3 ? argv[2] : infile;
 
     struct block_device* bd = bdCreate(PICO_FLASH_BASE_ADDR);
-    bdfs_create_hal_at(bd, &cfg, FLASHFS_BASE_ADDR);
+    bdfs_create_hal_at(&cfg, bd, FLASHFS_BASE_ADDR);
     readu2f(infile, bd);
 
     // mount the filesystem
@@ -94,7 +94,7 @@ int main(int argc, char* argv[]) {
     lfs_unmount(&lfs);
     writeu2f(outfile, bd);
 
-    bdfs_destroy_hal(bd, &cfg);
+    bdfs_destroy_hal(&cfg);
     bdDestroy(bd);
 
     // print the boot count

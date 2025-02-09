@@ -5,8 +5,8 @@
 
 struct block_device;
 
-void bdfs_create_hal_at(struct block_device* bd, struct lfs_config* c, uint32_t fs_base_address);
-void bdfs_destroy_hal(struct block_device* bd, struct lfs_config* c);
+void bdfs_create_hal_at(struct lfs_config* c, struct block_device* bd, uint32_t fs_base_address);
+void bdfs_destroy_hal(struct lfs_config* c);
 
 // block device functions required for littlefs
 int bdfs_read(const struct lfs_config* c, lfs_block_t block, lfs_off_t off, void *buffer, lfs_size_t size);

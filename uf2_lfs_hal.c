@@ -16,7 +16,7 @@ uint32_t fsAddressForBlock(struct flash_fs* fs, uint32_t block, uint32_t off) {
     return fs->fs_flash_base_address + byte_offset;
 }
 
-void bdfs_create_hal_at(struct block_device* bd, struct lfs_config* c, uint32_t fs_base_address) {
+void bdfs_create_hal_at(struct lfs_config* c, struct block_device* bd, uint32_t fs_base_address) {
 
     struct flash_fs* fs = malloc(sizeof(struct flash_fs));
     fs->device = bd;
@@ -25,7 +25,7 @@ void bdfs_create_hal_at(struct block_device* bd, struct lfs_config* c, uint32_t 
     c->context = fs;
 }
 
-void bdfs_destroy_hal(struct block_device* bd, struct lfs_config* c) {
+void bdfs_destroy_hal(struct lfs_config* c) {
 
     free(c->context);
     c->context = NULL;
