@@ -34,7 +34,7 @@ struct flash_page {
 
 struct block_device device;
 
-struct block_device* uf2_hal_init(uint32_t flash_base_address) {
+struct block_device* bdCreate(uint32_t flash_base_address) {
 
     device.base_address = flash_base_address;
     for (int i = 0; i < PICO_DEVICE_BLOCK_COUNT; i++) {
