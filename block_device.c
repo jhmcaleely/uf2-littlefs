@@ -153,12 +153,11 @@ bool bdWriteToUF2(struct block_device* bd, FILE* output) {
         if (bd->block_present[i]) {
             for (int p = 0; p < PICO_FLASH_PAGE_PER_BLOCK; p++) {
                 if (bd->page_present[i][p]) {
-                    uint32_t storage_offset = bdStorageOffset(i, p);
                     UF2_Block b;
                     b.magicStart0 = UF2_MAGIC_START0;
                     b.magicStart1 = UF2_MAGIC_START1;
                     b.flags = UF2_FLAG_FAMILY_ID;
-                    b.targetAddr = bd->base_address + storage_offset;
+                    b.targetAddr = bd->base_address + bdStorageOffset(i, p);
                     b.payloadSize = PICO_PROG_PAGE_SIZE;
                     b.blockNo = cursor;
                     b.numBlocks = total;
@@ -166,16 +165,14 @@ bool bdWriteToUF2(struct block_device* bd, FILE* output) {
                     // documented as FamilyID, Filesize or 0.
                     b.reserved = PICO_UF2_FAMILYID;
 
-                    uint8_t* source = &bd->storage[storage_offset];
-
-                    memcpy(b.data, source, PICO_PROG_PAGE_SIZE);
+                    bdRead(bd, b.targetAddr, b.data, PICO_PROG_PAGE_SIZE);
 
                     // Zero fill the undefined space
                     memset(&b.data[PICO_PROG_PAGE_SIZE], 0, sizeof(b.data) - PICO_PROG_PAGE_SIZE);
 
                     b.magicEnd = UF2_MAGIC_END;
                     
-                    printf("uf2block: %08x, %d\n", b.targetAddr, b.payloadSize);
+                    printf("uf2page: %08x, %d\n", b.targetAddr, b.payloadSize);
 
                     fwrite(&b, sizeof(b), 1, output);
 
